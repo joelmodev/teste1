@@ -10,6 +10,7 @@
       padding: 0;
       height: 100%;
       overflow: hidden;
+      background-color: #e0e0e0;
     }
     canvas {
       display: block;
@@ -18,80 +19,110 @@
 </head>
 <body>
   <canvas id="webgl-canvas"></canvas>
-  
+
+  <!-- Bibliotecas Externas -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/gamepad.js@1.2.0"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/loaders/STLLoader.js"></script>
-  <script>
-    let scene, camera, renderer, player;
-    let controls = { forward: false, backward: false, left: false, right: false };
 
-    // Inicializando cena
+  <script>
+    let scene, camera, renderer, player, mixer, controls;
+    let isGamepadConnected = false;
+    let moveSpeed = 0.05;  // Velocidade de movimento
+
+    // Inicializando a cena
     function init() {
+      // Cena, câmera e renderizador
       scene = new THREE.Scene();
       camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
       renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('webgl-canvas') });
       renderer.setSize(window.innerWidth, window.innerHeight);
       document.body.appendChild(renderer.domElement);
 
-      // Carregar o arquivo STL
+      // Carregar o arquivo STL (modelo 3D)
       const loader = new THREE.STLLoader();
-      loader.load('model.stl', (geometry) => {
-        const material = new THREE.MeshStandardMaterial({ color: 0x555555 });
+      loader.load('arquivo.stl', (geometry) => {
+        const material = new THREE.MeshStandardMaterial({ color: 0x7f7f7f, flatShading: true });
         const mesh = new THREE.Mesh(geometry, material);
+        mesh.scale.set(0.5, 0.5, 0.5);  // Ajuste a escala do modelo
+        mesh.position.set(0, -1, 0);   // Ajuste a posição do modelo
         scene.add(mesh);
       });
 
-      // Luz
-      const light = new THREE.AmbientLight(0x404040);  // luz suave
+      // Luz ambiente
+      const light = new THREE.AmbientLight(0x404040, 1);  // luz suave
       scene.add(light);
-      
-      // Adicionando o controle
+
+      // Luz direcional
+      const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+      directionalLight.position.set(5, 10, 7.5);
+      scene.add(directionalLight);
+
+      // Configuração do jogador (câmera e controles)
       player = new THREE.Object3D();
       scene.add(player);
       camera.position.set(0, 2, 5);  // posição inicial da câmera
       camera.lookAt(player.position);
 
+      // Detectando gamepads
+      Gamepad.init();
+      controls = { forward: false, backward: false, left: false, right: false, jump: false };
+
       animate();
     }
 
-    // Função de animação e controle do jogador
+    // Função para animar o jogo
     function animate() {
       requestAnimationFrame(animate);
 
-      // Leitura dos controles do Gamepad
+      // Verifica se há gamepad conectado
       Gamepad.update();
-      let gamepads = navigator.getGamepads();
+      const gamepads = navigator.getGamepads();
       if (gamepads[0]) {
+        isGamepadConnected = true;
         const gamepad = gamepads[0];
+
+        // Mapeamento de botões do gamepad (alavancas analógicas)
         controls.forward = gamepad.axes[1] < -0.2;
         controls.backward = gamepad.axes[1] > 0.2;
         controls.left = gamepad.axes[0] < -0.2;
         controls.right = gamepad.axes[0] > 0.2;
+        controls.jump = gamepad.buttons[0].pressed;  // Botão A / X para pular ou outra ação
+      } else {
+        isGamepadConnected = false;
       }
 
       // Movimentação do jogador
-      if (controls.forward) player.position.z -= 0.1;
-      if (controls.backward) player.position.z += 0.1;
-      if (controls.left) player.position.x -= 0.1;
-      if (controls.right) player.position.x += 0.1;
+      if (controls.forward) player.position.z -= moveSpeed;
+      if (controls.backward) player.position.z += moveSpeed;
+      if (controls.left) player.position.x -= moveSpeed;
+      if (controls.right) player.position.x += moveSpeed;
 
-      // Atualizando a câmera para seguir o jogador
+      // Atualizar a posição da câmera para seguir o jogador
       camera.position.set(player.position.x, player.position.y + 2, player.position.z + 5);
       camera.lookAt(player.position);
 
+      // Renderizar a cena
       renderer.render(scene, camera);
     }
 
-    // Iniciando o jogo
-    init();
-
-    // Redimensionando o canvas quando a tela for redimensionada
+    // Função de redimensionamento do canvas
     window.addEventListener('resize', () => {
       renderer.setSize(window.innerWidth, window.innerHeight);
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
     });
+
+    // Função para checar a conexão do gamepad
+    function checkGamepadConnection() {
+      if (!isGamepadConnected) {
+        console.log('Nenhum controle conectado.');
+      }
+    }
+
+    // Iniciar o jogo
+    init();
+    setInterval(checkGamepadConnection, 1000); // Verifica a cada segundo
   </script>
 </body>
 </html>
