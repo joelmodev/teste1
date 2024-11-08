@@ -1,114 +1,240 @@
+
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Tour VR com Controle</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Tour VR Imersivo</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, minimal-ui">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/aframe/1.4.2/aframe.min.js"></script>
     <style>
-        .button-overlay {
-            position: fixed;
-            top: 20px;
-            left: 20px;
-            z-index: 9999;
-            background: rgba(255, 255, 255, 0.8);
-            padding: 10px;
-            border-radius: 5px;
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
-        #status {
-            color: #333;
-            margin-top: 5px;
+
+        body {
+            overflow: hidden;
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            background: #000;
+        }
+
+        .ui-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            z-index: 9999;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            transition: all 0.3s ease;
+            pointer-events: none;
+        }
+
+        .control-panel {
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 15px;
+            padding: 15px;
+            color: white;
+            margin-bottom: 10px;
+            backdrop-filter: blur(10px);
+            pointer-events: all;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        .status-text {
+            font-size: 14px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+        }
+
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 10px;
+            background: #ff3b3b;
+        }
+
+        .status-indicator.connected {
+            background: #4CAF50;
+        }
+
+        .control-info {
+            font-size: 12px;
+            opacity: 0.8;
+            margin-top: 10px;
+        }
+
+        .toggle-ui {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            cursor: pointer;
+            z-index: 10000;
+            pointer-events: all;
+        }
+
+        .hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        #enter-vr {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-weight: bold;
+            cursor: pointer;
+            z-index: 10000;
+            pointer-events: all;
         }
     </style>
 </head>
 <body>
-    <div class="button-overlay">
-        <div id="status">Status do Controle: Desconectado</div>
+    <div class="ui-overlay" id="ui-overlay">
+        <div class="control-panel">
+            <div class="status-text">
+                <div class="status-indicator" id="status-indicator"></div>
+                <span id="status-text">Aguardando controle...</span>
+            </div>
+            <div class="control-info">
+                <strong>Controles:</strong><br>
+                🎮 Analógico: Movimento e Rotação<br>
+                📱 Toque: Mover para frente<br>
+                🔄 Giroscópio: Olhar ao redor
+            </div>
+        </div>
     </div>
 
-    <script>
-        // Variáveis globais
-        let activeGamepad = null;
-        const moveSpeed = 0.15;
-        let isMoving = false;
+    <button class="toggle-ui" id="toggle-ui">UI</button>
+    <button id="enter-vr">Entrar em VR</button>
 
-        // Componente personalizado para controles
-        AFRAME.registerComponent('gamepad-controls', {
+    <script>
+        // Configuração de tela cheia
+        function requestFullscreen() {
+            const elem = document.documentElement;
+            if (elem.requestFullscreen) {
+                elem.requestFullscreen();
+            } else if (elem.webkitRequestFullscreen) {
+                elem.webkitRequestFullscreen();
+            } else if (elem.mozRequestFullScreen) {
+                elem.mozRequestFullScreen();
+            } else if (elem.msRequestFullscreen) {
+                elem.msRequestFullscreen();
+            }
+        }
+
+        // Componente de controles melhorado
+        AFRAME.registerComponent('enhanced-controls', {
+            schema: {
+                moveSpeed: {default: 0.15},
+                rotateSpeed: {default: 2.0}
+            },
+
             init: function() {
-                this.camera = this.el.querySelector('[camera]');
                 this.moveVector = new THREE.Vector3();
+                this.isMoving = false;
+                this.gamepad = null;
+                this.setupControllers();
+                this.setupTouchControls();
                 
-                // Monitora conexão de gamepads
+                // Atualiza UI quando entra/sai do modo VR
+                this.el.sceneEl.addEventListener('enter-vr', () => {
+                    document.getElementById('ui-overlay').classList.add('hidden');
+                    document.getElementById('toggle-ui').classList.add('hidden');
+                });
+                
+                this.el.sceneEl.addEventListener('exit-vr', () => {
+                    document.getElementById('ui-overlay').classList.remove('hidden');
+                    document.getElementById('toggle-ui').classList.remove('hidden');
+                });
+            },
+
+            setupControllers: function() {
                 window.addEventListener('gamepadconnected', (e) => {
-                    console.log('Gamepad conectado:', e.gamepad.id);
-                    activeGamepad = e.gamepad;
-                    document.getElementById('status').textContent = 
-                        'Status do Controle: Conectado - ' + e.gamepad.id;
+                    console.log('Controle conectado:', e.gamepad.id);
+                    this.gamepad = e.gamepad;
+                    document.getElementById('status-indicator').classList.add('connected');
+                    document.getElementById('status-text').textContent = 'Controle conectado!';
                 });
 
                 window.addEventListener('gamepaddisconnected', (e) => {
-                    console.log('Gamepad desconectado:', e.gamepad.id);
-                    activeGamepad = null;
-                    document.getElementById('status').textContent = 
-                        'Status do Controle: Desconectado';
+                    this.gamepad = null;
+                    document.getElementById('status-indicator').classList.remove('connected');
+                    document.getElementById('status-text').textContent = 'Controle desconectado';
                 });
+            },
 
-                // Suporte a toque para movimento
+            setupTouchControls: function() {
                 const scene = document.querySelector('a-scene');
-                scene.addEventListener('touchstart', () => { isMoving = true; });
-                scene.addEventListener('touchend', () => { isMoving = false; });
+                scene.addEventListener('touchstart', () => { this.isMoving = true; });
+                scene.addEventListener('touchend', () => { this.isMoving = false; });
             },
 
             tick: function() {
-                // Atualiza estado do gamepad
                 const gamepads = navigator.getGamepads();
-                if (activeGamepad) {
-                    activeGamepad = gamepads[activeGamepad.index];
+                if (this.gamepad) {
+                    this.gamepad = gamepads[this.gamepad.index];
                 }
 
-                if (!this.camera) return;
-
-                // Movimento por gamepad
-                if (activeGamepad) {
-                    // Botões comuns do VR Box 2.0
-                    const moveForward = activeGamepad.buttons[0].pressed; // Botão principal
-                    const moveBackward = activeGamepad.buttons[1].pressed; // Botão secundário
-                    const turnLeft = activeGamepad.buttons[2].pressed; // Botão esquerdo
-                    const turnRight = activeGamepad.buttons[3].pressed; // Botão direito
-
-                    // Movimento para frente/trás
-                    if (moveForward || isMoving) {
-                        this.moveVector.set(0, 0, -moveSpeed);
+                if (this.gamepad) {
+                    // Movimento com analógico
+                    const axes = this.gamepad.axes;
+                    if (Math.abs(axes[0]) > 0.1 || Math.abs(axes[1]) > 0.1) {
+                        // Movimento frente/trás
+                        this.moveVector.set(0, 0, axes[1] * this.data.moveSpeed);
                         this.el.object3D.localToWorld(this.moveVector);
                         this.el.object3D.position.add(this.moveVector);
-                    }
-                    if (moveBackward) {
-                        this.moveVector.set(0, 0, moveSpeed);
-                        this.el.object3D.localToWorld(this.moveVector);
-                        this.el.object3D.position.add(this.moveVector);
+                        
+                        // Rotação
+                        this.el.object3D.rotation.y -= axes[0] * (this.data.rotateSpeed * 0.02);
                     }
 
-                    // Rotação
-                    if (turnLeft) {
-                        this.el.object3D.rotation.y += 0.05;
-                    }
-                    if (turnRight) {
-                        this.el.object3D.rotation.y -= 0.05;
-                    }
-
-                    // Suporte a analógico caso exista
-                    if (Math.abs(activeGamepad.axes[0]) > 0.1) {
-                        this.el.object3D.rotation.y -= activeGamepad.axes[0] * 0.05;
-                    }
-                    if (Math.abs(activeGamepad.axes[1]) > 0.1) {
-                        this.moveVector.set(0, 0, activeGamepad.axes[1] * moveSpeed);
-                        this.el.object3D.localToWorld(this.moveVector);
-                        this.el.object3D.position.add(this.moveVector);
+                    // Botões adicionais
+                    for (let i = 0; i < this.gamepad.buttons.length; i++) {
+                        if (this.gamepad.buttons[i].pressed) {
+                            switch(i) {
+                                case 0: // Botão A/1
+                                    this.moveVector.set(0, 0, -this.data.moveSpeed);
+                                    break;
+                                case 1: // Botão B/2
+                                    this.moveVector.set(0, 0, this.data.moveSpeed);
+                                    break;
+                                case 2: // Botão X/3
+                                    this.el.object3D.rotation.y += 0.05;
+                                    break;
+                                case 3: // Botão Y/4
+                                    this.el.object3D.rotation.y -= 0.05;
+                                    break;
+                            }
+                            this.el.object3D.localToWorld(this.moveVector);
+                            this.el.object3D.position.add(this.moveVector);
+                        }
                     }
                 }
 
                 // Movimento por toque
-                if (isMoving) {
-                    this.moveVector.set(0, 0, -moveSpeed);
+                if (this.isMoving) {
+                    this.moveVector.set(0, 0, -this.data.moveSpeed);
                     this.el.object3D.localToWorld(this.moveVector);
                     this.el.object3D.position.add(this.moveVector);
                 }
@@ -116,34 +242,63 @@
         });
     </script>
 
-    <a-scene>
+    <a-scene loading-screen="dotsColor: #4CAF50; backgroundColor: #000"
+             vr-mode-ui="enabled: false">
         <!-- Assets -->
         <a-assets>
             <a-asset-item id="modelo" src="./arquivo.stl"></a-asset-item>
         </a-assets>
 
         <!-- Ambiente -->
-        <a-sky color="#ECECEC"></a-sky>
-        <a-grid material="color: #666" position="0 0 0"></a-grid>
+        <a-gradient-sky material="shader: gradient; topColor: #000000; bottomColor: #2196F3;"></a-gradient-sky>
+        <a-grid material="color: #2196F3; opacity: 0.3;" position="0 0 0" rotation="-90 0 0"></a-grid>
 
         <!-- Iluminação -->
-        <a-light type="ambient" color="#fff" intensity="0.5"></a-light>
-        <a-light type="directional" color="#fff" intensity="0.8" position="-1 1 1"></a-light>
+        <a-light type="ambient" color="#fff" intensity="0.6"></a-light>
+        <a-light type="directional" color="#fff" intensity="1.0" position="-1 1 1"></a-light>
+        <a-light type="point" color="#2196F3" intensity="0.5" position="0 3 0"></a-light>
 
         <!-- Câmera com controles -->
-        <a-entity position="0 1.6 0" gamepad-controls>
-            <a-camera look-controls wasd-controls="enabled: false">
-                <a-cursor></a-cursor>
+        <a-entity position="0 1.6 0" enhanced-controls="moveSpeed: 0.15; rotateSpeed: 2.0">
+            <a-camera look-controls="pointerLockEnabled: true" wasd-controls="enabled: false">
+                <a-entity
+                    cursor="fuse: true; fuseTimeout: 500"
+                    position="0 0 -1"
+                    geometry="primitive: ring; radiusInner: 0.01; radiusOuter: 0.02"
+                    material="color: #4CAF50; shader: flat"
+                    animation__click="property: scale; startEvents: click; easing: easeInCubic; dur: 150; from: 0.1 0.1 0.1; to: 1 1 1"
+                    animation__fusing="property: scale; startEvents: fusing; easing: easeInCubic; dur: 1500; from: 1 1 1; to: 0.1 0.1 0.1"
+                    animation__mouseleave="property: scale; startEvents: mouseleave; easing: easeInCubic; dur: 500; to: 1 1 1">
+                </a-entity>
             </a-camera>
         </a-entity>
 
-        <!-- Modelo STL -->
+        <!-- Modelo STL com material melhorado -->
         <a-entity 
             stl-model="src: #modelo"
             scale="0.1 0.1 0.1"
             position="0 0 -3"
-            material="color: #888; metalness: 0.3; roughness: 0.7">
+            material="color: #fff; metalness: 0.3; roughness: 0.7; envMap: #sky;">
         </a-entity>
     </a-scene>
+
+    <script>
+        // Configuração da UI
+        document.getElementById('toggle-ui').addEventListener('click', () => {
+            document.getElementById('ui-overlay').classList.toggle('hidden');
+        });
+
+        document.getElementById('enter-vr').addEventListener('click', () => {
+            requestFullscreen();
+            document.querySelector('a-scene').enterVR();
+        });
+
+        // Esconde a barra de navegação em dispositivos móveis
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                window.scrollTo(0, 1);
+            }, 100);
+        });
+    </script>
 </body>
 </html>
