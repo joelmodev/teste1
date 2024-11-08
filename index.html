@@ -1,32 +1,114 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Visualizador VR</title>
+    <title>Tour VR com Controle</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/aframe/1.4.2/aframe.min.js"></script>
 </head>
 <body>
+    <div id="connect-button" style="position: fixed; top: 20px; left: 20px; z-index: 9999; background: white; padding: 10px;">
+        <button onclick="connectController()">Conectar Controle</button>
+    </div>
+
+    <script>
+        // Configuração do Gamepad
+        let gamepad = null;
+        let moveSpeed = 0.15;
+        let isMoving = false;
+
+        // Função para conectar o controle
+        async function connectController() {
+            try {
+                const device = await navigator.bluetooth.requestDevice({
+                    filters: [{ 
+                        // Filtro genérico para controles Bluetooth
+                        services: ['generic_access']
+                    }]
+                });
+                console.log('Controle conectado:', device.name);
+                document.getElementById('connect-button').style.display = 'none';
+            } catch (error) {
+                console.error('Erro ao conectar:', error);
+            }
+        }
+
+        // Componente personalizado para movimento
+        AFRAME.registerComponent('custom-controls', {
+            init: function() {
+                this.camera = this.el.querySelector('[camera]');
+                this.isMoving = false;
+                
+                // Listener para o gamepad
+                window.addEventListener('gamepadconnected', (e) => {
+                    console.log('Gamepad conectado:', e.gamepad);
+                    gamepad = e.gamepad;
+                });
+
+                // Eventos de toque para dispositivos móveis
+                document.addEventListener('touchstart', () => this.isMoving = true);
+                document.addEventListener('touchend', () => this.isMoving = false);
+            },
+
+            tick: function() {
+                if (!this.camera) return;
+
+                // Movimento com gamepad
+                if (gamepad) {
+                    const axes = gamepad.axes;
+                    if (Math.abs(axes[0]) > 0.1 || Math.abs(axes[1]) > 0.1) {
+                        const direction = new THREE.Vector3();
+                        this.camera.object3D.getWorldDirection(direction);
+                        
+                        // Movimento para frente/trás
+                        this.el.object3D.position.add(
+                            direction.multiplyScalar(axes[1] * moveSpeed)
+                        );
+                        
+                        // Rotação esquerda/direita
+                        this.el.object3D.rotation.y -= axes[0] * 0.03;
+                    }
+                }
+
+                // Movimento automático ao tocar na tela
+                if (this.isMoving) {
+                    const direction = new THREE.Vector3();
+                    this.camera.object3D.getWorldDirection(direction);
+                    this.el.object3D.position.add(
+                        direction.multiplyScalar(moveSpeed)
+                    );
+                }
+            }
+        });
+    </script>
+
     <a-scene>
+        <!-- Assets - Carrega o modelo STL -->
+        <a-assets>
+            <a-asset-item id="modelo" src="./arquivo.stl"></a-asset-item>
+        </a-assets>
+
         <!-- Ambiente -->
         <a-sky color="#ECECEC"></a-sky>
-        <a-plane position="0 0 -4" rotation="-90 0 0" width="4" height="4" color="#7BC8A4"></a-plane>
-        
-        <!-- Câmera com controles -->
-        <a-entity position="0 1.6 0">
-            <a-camera look-controls wasd-controls>
+        <a-grid material="color: #666" position="0 0 0"></a-grid>
+
+        <!-- Iluminação -->
+        <a-light type="ambient" color="#fff" intensity="0.5"></a-light>
+        <a-light type="directional" color="#fff" intensity="0.8" position="-1 1 1"></a-light>
+
+        <!-- Câmera com controles personalizados -->
+        <a-entity position="0 1.6 0" custom-controls>
+            <a-camera look-controls wasd-controls="enabled: false">
                 <a-cursor></a-cursor>
             </a-camera>
         </a-entity>
 
-        <!-- Seu modelo 3D será carregado aqui -->
-        <a-entity position="0 0 -3" scale="1 1 1"
-                  gltf-model="#modelo">
+        <!-- Modelo STL -->
+        <a-entity 
+            stl-model="src: #modelo"
+            scale="0.1 0.1 0.1"
+            position="0 0 -3"
+            material="color: #888; metalness: 0.3; roughness: 0.7">
         </a-entity>
-
-        <!-- Assets -->
-        <a-assets>
-            <a-asset-item id="modelo" src="seu-modelo.glb"></a-asset-item>
-        </a-assets>
     </a-scene>
 </body>
 </html>
