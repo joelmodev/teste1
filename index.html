@@ -1,10 +1,9 @@
 <!DOCTYPE html>
-<html>
+<html lang="pt-br">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tour 3D Local</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, minimal-ui">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="mobile-web-app-capable" content="yes">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/aframe/1.4.2/aframe.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/aframe-extras/6.1.1/aframe-extras.loaders.min.js"></script>
     <style>
@@ -16,7 +15,6 @@
 
         body {
             overflow: hidden;
-            position: fixed;
             width: 100%;
             height: 100%;
             background: #000;
@@ -28,7 +26,7 @@
             left: 0;
             width: 100%;
             z-index: 9999;
-            padding: 20px;
+            padding: 10px;
             font-family: Arial, sans-serif;
             transition: all 0.3s ease;
             pointer-events: none;
@@ -37,76 +35,64 @@
         .control-panel {
             background: rgba(0, 0, 0, 0.7);
             border-radius: 15px;
-            padding: 15px;
+            padding: 10px;
             color: white;
-            margin-bottom: 10px;
-            backdrop-filter: blur(10px);
             pointer-events: all;
-            max-width: 400px;
+            max-width: 300px;
             margin: 0 auto;
         }
 
-        .status-text {
-            font-size: 14px;
-            margin-bottom: 10px;
-            display: flex;
-            align-items: center;
-        }
-
-        .status-indicator {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            margin-right: 10px;
-            background: #ff3b3b;
-        }
-
-        .status-indicator.connected {
-            background: #4CAF50;
-        }
-
         .control-info {
-            font-size: 12px;
+            font-size: 14px;
             opacity: 0.8;
-            margin-top: 10px;
         }
 
-        .hidden {
-            opacity: 0;
-            pointer-events: none;
+        .fullscreen-button {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            pointer-events: all;
         }
+
+        .fullscreen-button.exit {
+            background-color: #f44336;
+        }
+
     </style>
 </head>
 <body>
-    <div class="ui-overlay" id="ui-overlay">
+
+    <div class="ui-overlay">
         <div class="control-panel">
-            <div class="status-text">
-                <div class="status-indicator" id="status-indicator"></div>
-                <span id="status-text">Aguardando controle...</span>
-            </div>
             <div class="control-info">
                 <strong>Controles:</strong><br>
                 🎮 Teclas WASD: Movimento<br>
-                🎮 Analógico (Gamepad): Movimento e Rotação<br>
-                🔄 Giroscópio: Olhar ao redor
+                🎮 Analógico (Gamepad): Movimento e Rotação
             </div>
         </div>
     </div>
 
+    <button class="fullscreen-button" id="fullscreen-button">Tela Cheia</button>
+
     <script>
-        // Configuração de controle sem Cardboard
+        // Configuração de controle sem VR
         AFRAME.registerComponent('enhanced-controls', {
             schema: {
-                moveSpeed: {default: 0.15},
+                moveSpeed: {default: 0.1},
                 rotateSpeed: {default: 2.0}
             },
 
             init: function() {
                 this.moveVector = new THREE.Vector3();
-                this.isMoving = false;
                 this.gamepad = null;
                 this.setupKeyboardControls();
-                this.setupControllers();
+                this.setupGamepadControls();
             },
 
             setupKeyboardControls: function() {
@@ -149,18 +135,15 @@
                 this.el.object3D.rotation.y -= this.data.rotateSpeed * 0.05;
             },
 
-            setupControllers: function() {
+            setupGamepadControls: function() {
                 window.addEventListener('gamepadconnected', (e) => {
-                    console.log('Controle conectado:', e.gamepad.id);
+                    console.log('Gamepad conectado:', e.gamepad.id);
                     this.gamepad = e.gamepad;
-                    document.getElementById('status-indicator').classList.add('connected');
-                    document.getElementById('status-text').textContent = 'Controle conectado!';
                 });
 
                 window.addEventListener('gamepaddisconnected', (e) => {
                     this.gamepad = null;
-                    document.getElementById('status-indicator').classList.remove('connected');
-                    document.getElementById('status-text').textContent = 'Controle desconectado';
+                    console.log('Gamepad desconectado');
                 });
             },
 
@@ -171,28 +154,45 @@
                 }
 
                 if (this.gamepad) {
-                    // Movimento com analógico
                     const axes = this.gamepad.axes;
                     if (Math.abs(axes[0]) > 0.1 || Math.abs(axes[1]) > 0.1) {
-                        // Movimento frente/trás
                         this.moveVector.set(0, 0, axes[1] * this.data.moveSpeed);
                         this.el.object3D.localToWorld(this.moveVector);
                         this.el.object3D.position.add(this.moveVector);
-                        
-                        // Rotação
                         this.el.object3D.rotation.y -= axes[0] * (this.data.rotateSpeed * 0.02);
                     }
                 }
             }
         });
+
+        // Função para alternar a tela cheia
+        function toggleFullscreen() {
+            const elem = document.documentElement;
+            if (!document.fullscreenElement) {
+                elem.requestFullscreen().catch(err => {
+                    alert(`Erro ao tentar entrar em tela cheia: ${err.message}`);
+                });
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+        // Botão de tela cheia
+        const fullscreenButton = document.getElementById('fullscreen-button');
+        fullscreenButton.addEventListener('click', () => {
+            toggleFullscreen();
+            fullscreenButton.classList.toggle('exit');
+            fullscreenButton.textContent = fullscreenButton.classList.contains('exit') ? 'Sair da Tela Cheia' : 'Tela Cheia';
+        });
+
     </script>
 
     <a-scene>
         <!-- Controle da câmera com teclado e gamepad -->
         <a-entity enhanced-controls camera look-controls>
         </a-entity>
-        
-        <!-- Modelo STL -->
+
+        <!-- Modelo STL carregado localmente -->
         <a-entity position="0 1.5 -3" rotation="0 45 0" scale="0.5 0.5 0.5"
                   stl-model="url(arquivo.stl)" material="color: #4CC3D9"></a-entity>
 
