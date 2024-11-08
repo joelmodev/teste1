@@ -83,13 +83,14 @@
         // Configuração de controle sem VR
         AFRAME.registerComponent('enhanced-controls', {
             schema: {
-                moveSpeed: {default: 0.1}, // Velocidade de movimento
+                moveSpeed: {default: 0.05}, // Sensibilidade de movimento reduzida
                 rotateSpeed: {default: 2.0}, // Velocidade de rotação
                 smoothing: {default: 0.1}, // Suavização do movimento
                 minY: {default: 0}, // Limite mínimo de altura
                 maxY: {default: 10}, // Limite máximo de altura
-                minZ: {default: -10}, // Limite para evitar tela preta ao mover para trás
-                maxZ: {default: 10}, // Limite para frente
+                minZ: {default: -30}, // Limite expandido para trás
+                maxZ: {default: 30}, // Limite expandido para frente
+                fov: {default: 70} // Campo de visão ajustado para visualização 3D
             },
 
             init: function() {
@@ -100,6 +101,7 @@
                 this.targetVelocity = new THREE.Vector3(); // Para armazenar a direção do movimento
                 this.setupKeyboardControls();
                 this.setupGamepadControls();
+                this.el.setAttribute('camera', {fov: this.data.fov}); // Definir o campo de visão
             },
 
             setupKeyboardControls: function() {
@@ -198,8 +200,8 @@
                 if (this.gamepad) {
                     const axes = this.gamepad.axes;
                     // Movimentação do joystick (eixo X = lateral, eixo Y = para frente/trás)
-                    const moveXGamepad = Math.sin(this.el.object3D.rotation.y) * axes[1];
-                    const moveZGamepad = Math.cos(this.el.object3D.rotation.y) * axes[1];
+                    const moveXGamepad = Math.sin(this.el.object3D.rotation.y) * axes[1] * 0.05; // Ajustado para sensibilidade
+                    const moveZGamepad = Math.cos(this.el.object3D.rotation.y) * axes[1] * 0.05; // Ajustado para sensibilidade
 
                     this.velocity.set(moveXGamepad, 0, moveZGamepad);
 
@@ -212,41 +214,37 @@
         });
 
         // Função para alternar a tela cheia
-        function toggleFullscreen() {
-            const elem = document.documentElement;
-            if (!document.fullscreenElement) {
-                elem.requestFullscreen().catch(err => {
-                    alert(`Erro ao tentar entrar em tela cheia: ${err.message}`);
-                });
-            } else {
-                document.exitFullscreen();
-            }
-        }
-
-        // Botão de tela cheia
         const fullscreenButton = document.getElementById('fullscreen-button');
         fullscreenButton.addEventListener('click', () => {
-            toggleFullscreen();
-            fullscreenButton.classList.toggle('exit');
-            fullscreenButton.textContent = fullscreenButton.classList.contains('exit') ? 'Sair da Tela Cheia' : 'Tela Cheia';
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+                fullscreenButton.textContent = 'Sair da Tela Cheia';
+                fullscreenButton.classList.add('exit');
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                    fullscreenButton.textContent = 'Tela Cheia';
+                    fullscreenButton.classList.remove('exit');
+                }
+            }
         });
-
     </script>
 
     <a-scene>
-        <!-- Controle da câmera com teclado e gamepad -->
-        <a-entity camera look-controls position="0 1.6 0" enhanced-controls="moveSpeed: 0.1; rotateSpeed: 2; smoothing: 0.1;"></a-entity>
+        <!-- Câmera e controles -->
+        <a-entity camera look-controls position="0 1.6 0" enhanced-controls="moveSpeed: 0.05; rotateSpeed: 2.0; smoothing: 0.1;"></a-entity>
 
         <!-- STL 3D -->
         <a-entity position="0 1.5 -3" rotation="0 45 0" scale="0.5 0.5 0.5"
                   stl-model="url(arquivo.stl)" material="color: #4CC3D9"></a-entity>
 
         <!-- Outros objetos no ambiente -->
-        <a-sphere position="1 1.25 -5" radius="1.25" color="#EF2D5E"></a-sphere>
-        <a-cylinder position="1 0.75 -2" radius="0.5" height="1.5" color="#FFC65D"></a-cylinder>
-        <a-plane position="0 0 -4" rotation="-90 0 0" width="10" height="10" color="#7BC8A4"></a-plane>
+        <a-sphere position="1 1.25 -15" radius="1.25" color="#EF2D5E"></a-sphere>
+        <a-cylinder position="1 0.75 -10" radius="0.5" height="1.5" color="#FFC65D"></a-cylinder>
+        <a-plane position="0 0 -25" rotation="-90 0 0" width="40" height="40" color="#7BC8A4"></a-plane>
         <a-sky color="#ECECEC"></a-sky>
     </a-scene>
+
 </body>
 </html>
 
