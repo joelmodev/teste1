@@ -135,7 +135,14 @@
                 const moveX = Math.sin(cameraRotation) * this.data.moveSpeed * direction;
                 const moveZ = Math.cos(cameraRotation) * this.data.moveSpeed * direction;
 
-                this.moveVector.set(moveX, 0, -moveZ);
+                // Inverter a movimentação se estiver olhando para trás (mais de 180 graus)
+                const angle = Math.abs(this.el.object3D.rotation.y) % (Math.PI * 2);
+                if (angle > Math.PI) { // Mais de 180 graus
+                    this.moveVector.set(-moveX, 0, -moveZ); // Inverte a direção
+                } else {
+                    this.moveVector.set(moveX, 0, moveZ);
+                }
+
                 this.el.object3D.position.add(this.moveVector);
             },
 
@@ -168,8 +175,15 @@
                 const moveX = Math.sin(cameraRotation) * this.velocity.x;
                 const moveZ = Math.cos(cameraRotation) * this.velocity.z;
 
-                this.el.object3D.position.x += moveX;
-                this.el.object3D.position.z += moveZ;
+                // Ajusta a movimentação em relação ao ângulo da câmera
+                const angle = Math.abs(this.el.object3D.rotation.y) % (Math.PI * 2);
+                if (angle > Math.PI) {
+                    this.el.object3D.position.x -= moveX;
+                    this.el.object3D.position.z -= moveZ;
+                } else {
+                    this.el.object3D.position.x += moveX;
+                    this.el.object3D.position.z += moveZ;
+                }
 
                 // Controle via gamepad
                 const gamepads = navigator.getGamepads();
@@ -207,17 +221,15 @@
         });
     </script>
 
-    <a-scene>
+    <a-scene stereo="stereo" vr-mode-ui="enabled: false">
         <!-- Câmera e controles -->
         <a-entity camera look-controls position="0 1.6 0" enhanced-controls="moveSpeed: 0.05; rotateSpeed: 2.0; smoothing: 0.1;"></a-entity>
 
         <!-- STL 3D -->
-        <a-entity position="0 1.5 -3" rotation="0 45 0" scale="0.5 0.5 0.5"
-                  stl-model="url(arquivo.stl)" material="color: #4CC3D9"></a-entity>
+        <a-entity position="0 1.5 -3" rotation="0 0 0" scale="1 1 1" 
+                  gltf-model="url(arquivo.stl)"></a-entity>
 
-        <!-- Outros objetos no ambiente -->
-        <a-sphere position="1 1.25 -15" radius="1.25" color="#EF2D5E"></a-sphere>
-        <a-cylinder position="1 0.75 -10" radius="0.5" height="1.5" color="#FFC65D"></a-cylinder>
+        <!-- Fundo e objetos de cenário -->
         <a-plane position="0 0 -25" rotation="-90 0 0" width="40" height="40" color="#7BC8A4"></a-plane>
         <a-sky color="#ECECEC"></a-sky>
     </a-scene>
