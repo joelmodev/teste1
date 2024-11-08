@@ -40,8 +40,8 @@
       document.body.appendChild(renderer.domElement);
 
       // Carregar o arquivo STL (modelo 3D)
-      const loader = new THREE.STLLoader();
-      loader.load('arquivo.stl', (geometry) => {
+      const loader = new THREE.STLLoader(); // Certifique-se de que o STLLoader foi corretamente carregado
+      loader.load('model.stl', (geometry) => {
         const material = new THREE.MeshStandardMaterial({ color: 0x7f7f7f, flatShading: true });
         const mesh = new THREE.Mesh(geometry, material);
         mesh.scale.set(0.5, 0.5, 0.5);  // Ajuste a escala do modelo
