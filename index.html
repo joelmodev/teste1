@@ -83,17 +83,19 @@
         // Configuração de controle sem VR
         AFRAME.registerComponent('enhanced-controls', {
             schema: {
-                moveSpeed: {default: 0.1},
-                rotateSpeed: {default: 2.0},
-                minY: {default: 0},  // Limite mínimo de altura
+                moveSpeed: {default: 0.1}, // Velocidade de movimento
+                rotateSpeed: {default: 2.0}, // Velocidade de rotação
+                minY: {default: 0}, // Limite mínimo de altura
                 maxY: {default: 10}, // Limite máximo de altura
                 minZ: {default: -10}, // Limite para evitar tela preta ao mover para trás
-                maxZ: {default: 10},  // Limite para frente
+                maxZ: {default: 10}, // Limite para frente
             },
 
             init: function() {
                 this.moveVector = new THREE.Vector3();
                 this.gamepad = null;
+                this.cameraHeight = 1.6;  // Altura da câmera
+                this.el.setAttribute('position', {x: 0, y: this.cameraHeight, z: 0});  // Definir altura inicial da câmera
                 this.setupKeyboardControls();
                 this.setupGamepadControls();
             },
@@ -102,16 +104,16 @@
                 window.addEventListener('keydown', (event) => {
                     switch (event.key) {
                         case 'w':
-                            this.moveInDirection(1);
+                            this.moveInDirection(1); // Move para frente
                             break;
                         case 's':
-                            this.moveInDirection(-1);
+                            this.moveInDirection(-1); // Move para trás
                             break;
                         case 'a':
-                            this.rotateLeft();
+                            this.rotateLeft(); // Rotaciona para a esquerda
                             break;
                         case 'd':
-                            this.rotateRight();
+                            this.rotateRight(); // Rotaciona para a direita
                             break;
                     }
                 });
@@ -224,3 +226,4 @@
     </a-scene>
 </body>
 </html>
+
