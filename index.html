@@ -85,6 +85,7 @@
             schema: {
                 moveSpeed: {default: 0.1}, // Velocidade de movimento
                 rotateSpeed: {default: 2.0}, // Velocidade de rotação
+                smoothing: {default: 0.1}, // Suavização do movimento
                 minY: {default: 0}, // Limite mínimo de altura
                 maxY: {default: 10}, // Limite máximo de altura
                 minZ: {default: -10}, // Limite para evitar tela preta ao mover para trás
@@ -93,9 +94,10 @@
 
             init: function() {
                 this.moveVector = new THREE.Vector3();
-                this.gamepad = null;
                 this.cameraHeight = 1.6;  // Altura da câmera
                 this.el.setAttribute('position', {x: 0, y: this.cameraHeight, z: 0});  // Definir altura inicial da câmera
+                this.velocity = new THREE.Vector3(); // Para suavizar a movimentação
+                this.targetVelocity = new THREE.Vector3(); // Para armazenar a direção do movimento
                 this.setupKeyboardControls();
                 this.setupGamepadControls();
             },
@@ -104,16 +106,29 @@
                 window.addEventListener('keydown', (event) => {
                     switch (event.key) {
                         case 'w':
-                            this.moveInDirection(1); // Move para frente
+                            this.targetVelocity.z = -this.data.moveSpeed; // Move para frente
                             break;
                         case 's':
-                            this.moveInDirection(-1); // Move para trás
+                            this.targetVelocity.z = this.data.moveSpeed; // Move para trás
                             break;
                         case 'a':
-                            this.rotateLeft(); // Rotaciona para a esquerda
+                            this.targetVelocity.x = -this.data.moveSpeed; // Move para a esquerda
                             break;
                         case 'd':
-                            this.rotateRight(); // Rotaciona para a direita
+                            this.targetVelocity.x = this.data.moveSpeed; // Move para a direita
+                            break;
+                    }
+                });
+
+                window.addEventListener('keyup', (event) => {
+                    switch (event.key) {
+                        case 'w':
+                        case 's':
+                            this.targetVelocity.z = 0; // Parar movimento
+                            break;
+                        case 'a':
+                        case 'd':
+                            this.targetVelocity.x = 0; // Parar movimento
                             break;
                     }
                 });
@@ -140,12 +155,10 @@
             },
 
             checkBoundaries: function() {
-                // Limitar a posição Y (altura) e Z (profundidade)
                 const position = this.el.object3D.position;
                 if (position.y < this.data.minY) position.y = this.data.minY;
                 if (position.y > this.data.maxY) position.y = this.data.maxY;
 
-                // Limitar o movimento para trás para evitar tela preta
                 if (position.z < this.data.minZ) position.z = this.data.minZ;
                 if (position.z > this.data.maxZ) position.z = this.data.maxZ;
             },
@@ -163,6 +176,20 @@
             },
 
             tick: function() {
+                // Suavização da movimentação
+                this.velocity.lerp(this.targetVelocity, this.data.smoothing);
+
+                // Aplicar movimentação
+                const cameraRotation = this.el.object3D.rotation.y;
+                const moveX = Math.sin(cameraRotation) * this.velocity.x;
+                const moveZ = Math.cos(cameraRotation) * this.velocity.z;
+
+                this.el.object3D.position.x += moveX;
+                this.el.object3D.position.z += moveZ;
+
+                this.checkBoundaries();
+
+                // Controle via gamepad
                 const gamepads = navigator.getGamepads();
                 if (this.gamepad) {
                     this.gamepad = gamepads[this.gamepad.index];
@@ -170,19 +197,16 @@
 
                 if (this.gamepad) {
                     const axes = this.gamepad.axes;
-                    if (Math.abs(axes[0]) > 0.1 || Math.abs(axes[1]) > 0.1) {
-                        const cameraRotation = this.el.object3D.rotation.y;
-                        const moveX = Math.sin(cameraRotation) * this.data.moveSpeed * axes[1];
-                        const moveZ = Math.cos(cameraRotation) * this.data.moveSpeed * axes[1];
+                    // Movimentação do joystick (eixo X = lateral, eixo Y = para frente/trás)
+                    const moveXGamepad = Math.sin(this.el.object3D.rotation.y) * axes[1];
+                    const moveZGamepad = Math.cos(this.el.object3D.rotation.y) * axes[1];
 
-                        this.moveVector.set(moveX, 0, -moveZ);
-                        this.el.object3D.position.add(this.moveVector);
+                    this.velocity.set(moveXGamepad, 0, moveZGamepad);
 
-                        this.el.object3D.rotation.y -= axes[0] * (this.data.rotateSpeed * 0.02);
+                    this.el.object3D.rotation.y -= axes[0] * (this.data.rotateSpeed * 0.02);
 
-                        // Verificar limites durante o uso do controle
-                        this.checkBoundaries();
-                    }
+                    // Verificar limites durante o uso do controle
+                    this.checkBoundaries();
                 }
             }
         });
@@ -218,10 +242,7 @@
         <a-entity position="0 1.5 -3" rotation="0 45 0" scale="0.5 0.5 0.5"
                   stl-model="url(arquivo.stl)" material="color: #4CC3D9"></a-entity>
 
-        <!-- Outros objetos no ambiente -->
-        <a-sphere position="1 1.25 -5" radius="1.25" color="#EF2D5E"></a-sphere>
-        <a-cylinder position="1 0.75 -2" radius="0.5" height="1.5" color="#FFC65D"></a-cylinder>
-        <a-plane position="0 0 -4" rotation="-90 0 0" width="10" height="10" color="#7BC8A4"></a-plane>
+
         <a-sky color="#ECECEC"></a-sky>
     </a-scene>
 </body>
