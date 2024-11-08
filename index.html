@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tour 3D Local</title>
+    <title>Visualização 3D com VR</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/aframe/1.4.2/aframe.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/aframe-extras/6.1.1/aframe-extras.loaders.min.js"></script>
     <style>
@@ -83,10 +83,10 @@
         // Configuração de controle sem VR
         AFRAME.registerComponent('enhanced-controls', {
             schema: {
-                moveSpeed: {default: 0.05}, // Sensibilidade de movimento reduzida
+                moveSpeed: {default: 0.05}, // Sensibilidade de movimento
                 rotateSpeed: {default: 2.0}, // Velocidade de rotação
                 smoothing: {default: 0.1}, // Suavização do movimento
-                fov: {default: 70} // Campo de visão ajustado para visualização 3D
+                fov: {default: 70} // Campo de visão ajustado
             },
 
             init: function() {
@@ -221,13 +221,12 @@
         });
     </script>
 
-    <a-scene stereo="stereo" vr-mode-ui="enabled: false">
+    <a-scene embedded vr-mode-ui="enabled: true">
         <!-- Câmera e controles -->
-        <a-entity camera look-controls position="0 1.6 0" enhanced-controls="moveSpeed: 0.05; rotateSpeed: 2.0; smoothing: 0.1;"></a-entity>
+        <a-entity camera look-controls position="0 1.6 0" enhanced-controls="moveSpeed: 0.05; rotateSpeed: 2.0;"></a-entity>
 
-        <!-- STL 3D -->
-        <a-entity position="0 1.5 -3" rotation="0 0 0" scale="1 1 1" 
-                  gltf-model="url(arquivo.stl)"></a-entity>
+        <!-- Modelo 3D -->
+        <a-entity position="0 1.5 -5" rotation="0 0 0" scale="1 1 1" gltf-model="url(arquivo.stl)"></a-entity>
 
         <!-- Fundo e objetos de cenário -->
         <a-plane position="0 0 -25" rotation="-90 0 0" width="40" height="40" color="#7BC8A4"></a-plane>
@@ -236,4 +235,3 @@
 
 </body>
 </html>
-
