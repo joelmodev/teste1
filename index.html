@@ -86,22 +86,16 @@
                 moveSpeed: {default: 0.05}, // Sensibilidade de movimento reduzida
                 rotateSpeed: {default: 2.0}, // Velocidade de rotação
                 smoothing: {default: 0.1}, // Suavização do movimento
-                minY: {default: 0}, // Limite mínimo de altura
-                maxY: {default: 10}, // Limite máximo de altura
-                minZ: {default: -30}, // Limite expandido para trás
-                maxZ: {default: 30}, // Limite expandido para frente
                 fov: {default: 70} // Campo de visão ajustado para visualização 3D
             },
 
             init: function() {
                 this.moveVector = new THREE.Vector3();
-                this.cameraHeight = 1.6;  // Altura da câmera
-                this.el.setAttribute('position', {x: 0, y: this.cameraHeight, z: 0});  // Definir altura inicial da câmera
                 this.velocity = new THREE.Vector3(); // Para suavizar a movimentação
                 this.targetVelocity = new THREE.Vector3(); // Para armazenar a direção do movimento
                 this.setupKeyboardControls();
                 this.setupGamepadControls();
-                this.el.setAttribute('camera', {fov: this.data.fov}); // Definir o campo de visão
+                this.el.setAttribute('camera', {fov: this.data.fov}); // Definir o campo de visão para lentes
             },
 
             setupKeyboardControls: function() {
@@ -143,9 +137,6 @@
 
                 this.moveVector.set(moveX, 0, -moveZ);
                 this.el.object3D.position.add(this.moveVector);
-
-                // Verificar limites para evitar mover para fora da cena
-                this.checkBoundaries();
             },
 
             rotateLeft: function() {
@@ -154,15 +145,6 @@
 
             rotateRight: function() {
                 this.el.object3D.rotation.y -= this.data.rotateSpeed * 0.05;
-            },
-
-            checkBoundaries: function() {
-                const position = this.el.object3D.position;
-                if (position.y < this.data.minY) position.y = this.data.minY;
-                if (position.y > this.data.maxY) position.y = this.data.maxY;
-
-                if (position.z < this.data.minZ) position.z = this.data.minZ;
-                if (position.z > this.data.maxZ) position.z = this.data.maxZ;
             },
 
             setupGamepadControls: function() {
@@ -189,8 +171,6 @@
                 this.el.object3D.position.x += moveX;
                 this.el.object3D.position.z += moveZ;
 
-                this.checkBoundaries();
-
                 // Controle via gamepad
                 const gamepads = navigator.getGamepads();
                 if (this.gamepad) {
@@ -206,9 +186,6 @@
                     this.velocity.set(moveXGamepad, 0, moveZGamepad);
 
                     this.el.object3D.rotation.y -= axes[0] * (this.data.rotateSpeed * 0.02);
-
-                    // Verificar limites durante o uso do controle
-                    this.checkBoundaries();
                 }
             }
         });
@@ -247,5 +224,4 @@
 
 </body>
 </html>
-
 
