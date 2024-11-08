@@ -179,7 +179,7 @@
                 // Suavização da movimentação
                 this.velocity.lerp(this.targetVelocity, this.data.smoothing);
 
-                // Aplicar movimentação
+                // Movimentação com base na rotação da câmera
                 const cameraRotation = this.el.object3D.rotation.y;
                 const moveX = Math.sin(cameraRotation) * this.velocity.x;
                 const moveZ = Math.cos(cameraRotation) * this.velocity.z;
@@ -235,10 +235,9 @@
 
     <a-scene>
         <!-- Controle da câmera com teclado e gamepad -->
-        <a-entity enhanced-controls camera look-controls>
-        </a-entity>
+        <a-entity camera look-controls position="0 1.6 0" enhanced-controls="moveSpeed: 0.1; rotateSpeed: 2; smoothing: 0.1;"></a-entity>
 
-        <!-- Modelo STL carregado localmente -->
+        <!-- STL 3D -->
         <a-entity position="0 1.5 -3" rotation="0 45 0" scale="0.5 0.5 0.5"
                   stl-model="url(arquivo.stl)" material="color: #4CC3D9"></a-entity>
 
@@ -250,4 +249,5 @@
     </a-scene>
 </body>
 </html>
+
 
