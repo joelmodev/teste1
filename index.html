@@ -4,85 +4,120 @@
     <title>Tour VR com Controle</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/aframe/1.4.2/aframe.min.js"></script>
+    <style>
+        .button-overlay {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 9999;
+            background: rgba(255, 255, 255, 0.8);
+            padding: 10px;
+            border-radius: 5px;
+        }
+        #status {
+            color: #333;
+            margin-top: 5px;
+        }
+    </style>
 </head>
 <body>
-    <div id="connect-button" style="position: fixed; top: 20px; left: 20px; z-index: 9999; background: white; padding: 10px;">
-        <button onclick="connectController()">Conectar Controle</button>
+    <div class="button-overlay">
+        <div id="status">Status do Controle: Desconectado</div>
     </div>
 
     <script>
-        // Configuração do Gamepad
-        let gamepad = null;
-        let moveSpeed = 0.15;
+        // Variáveis globais
+        let activeGamepad = null;
+        const moveSpeed = 0.15;
         let isMoving = false;
 
-        // Função para conectar o controle
-        async function connectController() {
-            try {
-                const device = await navigator.bluetooth.requestDevice({
-                    filters: [{ 
-                        // Filtro genérico para controles Bluetooth
-                        services: ['generic_access']
-                    }]
-                });
-                console.log('Controle conectado:', device.name);
-                document.getElementById('connect-button').style.display = 'none';
-            } catch (error) {
-                console.error('Erro ao conectar:', error);
-            }
-        }
-
-        // Componente personalizado para movimento
-        AFRAME.registerComponent('custom-controls', {
+        // Componente personalizado para controles
+        AFRAME.registerComponent('gamepad-controls', {
             init: function() {
                 this.camera = this.el.querySelector('[camera]');
-                this.isMoving = false;
+                this.moveVector = new THREE.Vector3();
                 
-                // Listener para o gamepad
+                // Monitora conexão de gamepads
                 window.addEventListener('gamepadconnected', (e) => {
-                    console.log('Gamepad conectado:', e.gamepad);
-                    gamepad = e.gamepad;
+                    console.log('Gamepad conectado:', e.gamepad.id);
+                    activeGamepad = e.gamepad;
+                    document.getElementById('status').textContent = 
+                        'Status do Controle: Conectado - ' + e.gamepad.id;
                 });
 
-                // Eventos de toque para dispositivos móveis
-                document.addEventListener('touchstart', () => this.isMoving = true);
-                document.addEventListener('touchend', () => this.isMoving = false);
+                window.addEventListener('gamepaddisconnected', (e) => {
+                    console.log('Gamepad desconectado:', e.gamepad.id);
+                    activeGamepad = null;
+                    document.getElementById('status').textContent = 
+                        'Status do Controle: Desconectado';
+                });
+
+                // Suporte a toque para movimento
+                const scene = document.querySelector('a-scene');
+                scene.addEventListener('touchstart', () => { isMoving = true; });
+                scene.addEventListener('touchend', () => { isMoving = false; });
             },
 
             tick: function() {
+                // Atualiza estado do gamepad
+                const gamepads = navigator.getGamepads();
+                if (activeGamepad) {
+                    activeGamepad = gamepads[activeGamepad.index];
+                }
+
                 if (!this.camera) return;
 
-                // Movimento com gamepad
-                if (gamepad) {
-                    const axes = gamepad.axes;
-                    if (Math.abs(axes[0]) > 0.1 || Math.abs(axes[1]) > 0.1) {
-                        const direction = new THREE.Vector3();
-                        this.camera.object3D.getWorldDirection(direction);
-                        
-                        // Movimento para frente/trás
-                        this.el.object3D.position.add(
-                            direction.multiplyScalar(axes[1] * moveSpeed)
-                        );
-                        
-                        // Rotação esquerda/direita
-                        this.el.object3D.rotation.y -= axes[0] * 0.03;
+                // Movimento por gamepad
+                if (activeGamepad) {
+                    // Botões comuns do VR Box 2.0
+                    const moveForward = activeGamepad.buttons[0].pressed; // Botão principal
+                    const moveBackward = activeGamepad.buttons[1].pressed; // Botão secundário
+                    const turnLeft = activeGamepad.buttons[2].pressed; // Botão esquerdo
+                    const turnRight = activeGamepad.buttons[3].pressed; // Botão direito
+
+                    // Movimento para frente/trás
+                    if (moveForward || isMoving) {
+                        this.moveVector.set(0, 0, -moveSpeed);
+                        this.el.object3D.localToWorld(this.moveVector);
+                        this.el.object3D.position.add(this.moveVector);
+                    }
+                    if (moveBackward) {
+                        this.moveVector.set(0, 0, moveSpeed);
+                        this.el.object3D.localToWorld(this.moveVector);
+                        this.el.object3D.position.add(this.moveVector);
+                    }
+
+                    // Rotação
+                    if (turnLeft) {
+                        this.el.object3D.rotation.y += 0.05;
+                    }
+                    if (turnRight) {
+                        this.el.object3D.rotation.y -= 0.05;
+                    }
+
+                    // Suporte a analógico caso exista
+                    if (Math.abs(activeGamepad.axes[0]) > 0.1) {
+                        this.el.object3D.rotation.y -= activeGamepad.axes[0] * 0.05;
+                    }
+                    if (Math.abs(activeGamepad.axes[1]) > 0.1) {
+                        this.moveVector.set(0, 0, activeGamepad.axes[1] * moveSpeed);
+                        this.el.object3D.localToWorld(this.moveVector);
+                        this.el.object3D.position.add(this.moveVector);
                     }
                 }
 
-                // Movimento automático ao tocar na tela
-                if (this.isMoving) {
-                    const direction = new THREE.Vector3();
-                    this.camera.object3D.getWorldDirection(direction);
-                    this.el.object3D.position.add(
-                        direction.multiplyScalar(moveSpeed)
-                    );
+                // Movimento por toque
+                if (isMoving) {
+                    this.moveVector.set(0, 0, -moveSpeed);
+                    this.el.object3D.localToWorld(this.moveVector);
+                    this.el.object3D.position.add(this.moveVector);
                 }
             }
         });
     </script>
 
     <a-scene>
-        <!-- Assets - Carrega o modelo STL -->
+        <!-- Assets -->
         <a-assets>
             <a-asset-item id="modelo" src="./arquivo.stl"></a-asset-item>
         </a-assets>
@@ -95,8 +130,8 @@
         <a-light type="ambient" color="#fff" intensity="0.5"></a-light>
         <a-light type="directional" color="#fff" intensity="0.8" position="-1 1 1"></a-light>
 
-        <!-- Câmera com controles personalizados -->
-        <a-entity position="0 1.6 0" custom-controls>
+        <!-- Câmera com controles -->
+        <a-entity position="0 1.6 0" gamepad-controls>
             <a-camera look-controls wasd-controls="enabled: false">
                 <a-cursor></a-cursor>
             </a-camera>
