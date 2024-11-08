@@ -1,42 +1,97 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Visualização 3D com VR</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/aframe/1.4.2/aframe.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/aframe-extras/6.1.1/aframe-extras.loaders.min.js"></script>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            overflow: hidden;
-            width: 100%;
-            height: 100%;
-            background: #000;
-        }
-
-        /* Removendo o botão de tela cheia */
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jogo 3D com Controle Bluetooth</title>
+  <style>
+    body, html {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      overflow: hidden;
+    }
+    canvas {
+      display: block;
+    }
+  </style>
 </head>
 <body>
+  <canvas id="webgl-canvas"></canvas>
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gamepad.js@1.2.0"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/loaders/STLLoader.js"></script>
+  <script>
+    let scene, camera, renderer, player;
+    let controls = { forward: false, backward: false, left: false, right: false };
 
-    <!-- Cena em VR -->
-    <a-scene embedded vr-mode-ui="enabled: true">
-        <!-- Definir a câmera (a A-Frame cuida da divisão da tela automaticamente para VR) -->
-        <a-entity camera look-controls position="0 1.6 0"></a-entity>
+    // Inicializando cena
+    function init() {
+      scene = new THREE.Scene();
+      camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+      renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('webgl-canvas') });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      document.body.appendChild(renderer.domElement);
 
-        <!-- Modelo 3D (substitua pelo seu arquivo .stl ou .gltf) -->
-        <a-entity position="0 1.5 -5" rotation="0 0 0" scale="1 1 1" gltf-model="url(arquivo.gltf)"></a-entity>
+      // Carregar o arquivo STL
+      const loader = new THREE.STLLoader();
+      loader.load('model.stl', (geometry) => {
+        const material = new THREE.MeshStandardMaterial({ color: 0x555555 });
+        const mesh = new THREE.Mesh(geometry, material);
+        scene.add(mesh);
+      });
 
-        <!-- Cenário com plano -->
-        <a-plane position="0 0 -25" rotation="-90 0 0" width="40" height="40" color="#7BC8A4"></a-plane>
-        <a-sky color="#ECECEC"></a-sky>
-    </a-scene>
+      // Luz
+      const light = new THREE.AmbientLight(0x404040);  // luz suave
+      scene.add(light);
+      
+      // Adicionando o controle
+      player = new THREE.Object3D();
+      scene.add(player);
+      camera.position.set(0, 2, 5);  // posição inicial da câmera
+      camera.lookAt(player.position);
 
+      animate();
+    }
+
+    // Função de animação e controle do jogador
+    function animate() {
+      requestAnimationFrame(animate);
+
+      // Leitura dos controles do Gamepad
+      Gamepad.update();
+      let gamepads = navigator.getGamepads();
+      if (gamepads[0]) {
+        const gamepad = gamepads[0];
+        controls.forward = gamepad.axes[1] < -0.2;
+        controls.backward = gamepad.axes[1] > 0.2;
+        controls.left = gamepad.axes[0] < -0.2;
+        controls.right = gamepad.axes[0] > 0.2;
+      }
+
+      // Movimentação do jogador
+      if (controls.forward) player.position.z -= 0.1;
+      if (controls.backward) player.position.z += 0.1;
+      if (controls.left) player.position.x -= 0.1;
+      if (controls.right) player.position.x += 0.1;
+
+      // Atualizando a câmera para seguir o jogador
+      camera.position.set(player.position.x, player.position.y + 2, player.position.z + 5);
+      camera.lookAt(player.position);
+
+      renderer.render(scene, camera);
+    }
+
+    // Iniciando o jogo
+    init();
+
+    // Redimensionando o canvas quando a tela for redimensionada
+    window.addEventListener('resize', () => {
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+    });
+  </script>
 </body>
 </html>
