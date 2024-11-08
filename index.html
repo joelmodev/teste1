@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Visualizador VR</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/aframe/1.4.2/aframe.min.js"></script>
+</head>
+<body>
+    <a-scene>
+        <!-- Ambiente -->
+        <a-sky color="#ECECEC"></a-sky>
+        <a-plane position="0 0 -4" rotation="-90 0 0" width="4" height="4" color="#7BC8A4"></a-plane>
+        
+        <!-- Câmera com controles -->
+        <a-entity position="0 1.6 0">
+            <a-camera look-controls wasd-controls>
+                <a-cursor></a-cursor>
+            </a-camera>
+        </a-entity>
+
+        <!-- Seu modelo 3D será carregado aqui -->
+        <a-entity position="0 0 -3" scale="1 1 1"
+                  gltf-model="#modelo">
+        </a-entity>
+
+        <!-- Assets -->
+        <a-assets>
+            <a-asset-item id="modelo" src="seu-modelo.glb"></a-asset-item>
+        </a-assets>
+    </a-scene>
+</body>
+</html>
