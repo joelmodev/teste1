@@ -6,6 +6,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/aframe/1.4.2/aframe.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/aframe-extras/6.1.1/aframe-extras.loaders.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -242,10 +243,10 @@
                                     this.moveVector.set(0, 0, this.data.moveSpeed);
                                     break;
                                 case 2: // Botão X/3
-                                    this.el.object3D.rotation.y += 0.05;
+                                    // Ação personalizada para o botão X
                                     break;
                                 case 3: // Botão Y/4
-                                    this.el.object3D.rotation.y -= 0.05;
+                                    // Ação personalizada para o botão Y
                                     break;
                             }
                             this.el.object3D.localToWorld(this.moveVector);
@@ -254,7 +255,6 @@
                     }
                 }
 
-                // Movimento por toque
                 if (this.isMoving) {
                     this.moveVector.set(0, 0, -this.data.moveSpeed);
                     this.el.object3D.localToWorld(this.moveVector);
@@ -263,7 +263,7 @@
             }
         });
 
-        // Entrada e saída do modo VR
+        // Entrar e sair do modo VR
         document.getElementById('enter-vr').addEventListener('click', () => {
             const scene = document.querySelector('a-scene');
             if (scene && scene.enterVR) {
@@ -280,7 +280,7 @@
             }
         });
 
-        // Exibir/esconder UI
+        // Exibir ou esconder UI
         document.getElementById('toggle-ui').addEventListener('click', () => {
             const uiOverlay = document.getElementById('ui-overlay');
             uiOverlay.classList.toggle('hidden');
@@ -293,8 +293,11 @@
             <!-- Adicione componentes de câmera conforme necessário -->
         </a-entity>
         
-        <!-- Cenário 3D -->
-        <a-box position="0 1.5 -3" rotation="0 45 0" color="#4CC3D9"></a-box>
+        <!-- Modelo STL -->
+        <a-entity position="0 1.5 -3" rotation="0 45 0" scale="0.5 0.5 0.5"
+                  stl-model="url(arquivo.stl)" material="color: #4CC3D9"></a-entity>
+
+        <!-- Outros objetos 3D no ambiente -->
         <a-sphere position="1 1.25 -5" radius="1.25" color="#EF2D5E"></a-sphere>
         <a-cylinder position="1 0.75 -2" radius="0.5" height="1.5" color="#FFC65D"></a-cylinder>
         <a-plane position="0 0 -4" rotation="-90 0 0" width="10" height="10" color="#7BC8A4"></a-plane>
@@ -302,3 +305,4 @@
     </a-scene>
 </body>
 </html>
+
