@@ -1,128 +1,353 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Jogo 3D com Controle Bluetooth</title>
-  <style>
-    body, html {
-      margin: 0;
-      padding: 0;
-      height: 100%;
-      overflow: hidden;
-      background-color: #e0e0e0;
-    }
-    canvas {
-      display: block;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Game Viewer FPS</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+        #game-container {
+            width: 100%;
+            height: 100%;
+        }
+        #virtual-joystick {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            width: 100px;
+            height: 100px;
+            background-color: rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            display: none;
+        }
+        #joystick-knob {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            background-color: rgba(255, 255, 255, 0.5);
+            border-radius: 50%;
+            top: 30px;
+            left: 30px;
+        }
+    </style>
 </head>
 <body>
-  <canvas id="webgl-canvas"></canvas>
+    <div id="game-container"></div>
+    <div id="virtual-joystick">
+        <div id="joystick-knob"></div>
+    </div>
 
-  <!-- Bibliotecas Externas -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/gamepad.js@1.2.0"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/loaders/STLLoader.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/PointerLockControls.js"></script>
 
-  <script>
-    let scene, camera, renderer, player, mixer, controls;
-    let isGamepadConnected = false;
-    let moveSpeed = 0.05;  // Velocidade de movimento
+    <script>
+        let scene, camera, renderer, controls, player;
+        let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
+        let joystick = { active: false, vector: new THREE.Vector2() };
+        let isGamepadConnected = false;
+        let velocity = new THREE.Vector3();
+        let direction = new THREE.Vector3();
+        let cameraRotation = new THREE.Vector2(); // Added camera rotation variable
 
-    // Inicializando a cena
-    function init() {
-      // Cena, câmera e renderizador
-      scene = new THREE.Scene();
-      camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-      renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('webgl-canvas') });
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      document.body.appendChild(renderer.domElement);
+        function init() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x87ceeb); // Sky blue background
 
-      // Carregar o arquivo STL (modelo 3D)
-      const loader = new THREE.STLLoader(); // Certifique-se de que o STLLoader foi corretamente carregado
-      loader.load('model.stl', (geometry) => {
-        const material = new THREE.MeshStandardMaterial({ color: 0x7f7f7f, flatShading: true });
-        const mesh = new THREE.Mesh(geometry, material);
-        mesh.scale.set(0.5, 0.5, 0.5);  // Ajuste a escala do modelo
-        mesh.position.set(0, -1, 0);   // Ajuste a posição do modelo
-        scene.add(mesh);
-      });
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.y = 1.7; // Set camera height to average human eye level
 
-      // Luz ambiente
-      const light = new THREE.AmbientLight(0x404040, 1);  // luz suave
-      scene.add(light);
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.getElementById('game-container').appendChild(renderer.domElement);
 
-      // Luz direcional
-      const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-      directionalLight.position.set(5, 10, 7.5);
-      scene.add(directionalLight);
+            const ambientLight = new THREE.AmbientLight(0x404040);
+            scene.add(ambientLight);
 
-      // Configuração do jogador (câmera e controles)
-      player = new THREE.Object3D();
-      scene.add(player);
-      camera.position.set(0, 2, 5);  // posição inicial da câmera
-      camera.lookAt(player.position);
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
+            directionalLight.position.set(1, 1, 1).normalize();
+            scene.add(directionalLight);
 
-      // Detectando gamepads
-      Gamepad.init();
-      controls = { forward: false, backward: false, left: false, right: false, jump: false };
+            // Floor
+            const floorGeometry = new THREE.PlaneGeometry(1000, 1000);
+            const floorMaterial = new THREE.MeshPhongMaterial({ color: 0x999999, side: THREE.DoubleSide });
+            const floorMesh = new THREE.Mesh(floorGeometry, floorMaterial);
+            floorMesh.rotation.x = -Math.PI / 2;
+            scene.add(floorMesh);
 
-      animate();
-    }
+            // Add grid to help visualize movement
+            const gridHelper = new THREE.GridHelper(1000, 100);
+            scene.add(gridHelper);
 
-    // Função para animar o jogo
-    function animate() {
-      requestAnimationFrame(animate);
+            // Add some cubes for reference
+            for (let i = 0; i < 20; i++) {
+                const geometry = new THREE.BoxGeometry(2, 2, 2);
+                const material = new THREE.MeshPhongMaterial({ color: Math.random() * 0xffffff });
+                const cube = new THREE.Mesh(geometry, material);
+                cube.position.set(
+                    Math.random() * 100 - 50,
+                    1,
+                    Math.random() * 100 - 50
+                );
+                scene.add(cube);
+            }
 
-      // Verifica se há gamepad conectado
-      Gamepad.update();
-      const gamepads = navigator.getGamepads();
-      if (gamepads[0]) {
-        isGamepadConnected = true;
-        const gamepad = gamepads[0];
+            // STL Model
+            const loader = new THREE.STLLoader();
+            loader.load('modelo.stl', (geometry) => {
+                const material = new THREE.MeshPhongMaterial({ color: 0xffd700, specular: 0x111111, shininess: 200 });
+                const model = new THREE.Mesh(geometry, material);
+                
+                geometry.computeBoundingBox();
+                const center = new THREE.Vector3();
+                geometry.boundingBox.getCenter(center);
+                model.position.sub(center);
+                
+                const scale = 2 / geometry.boundingBox.getSize(new THREE.Vector3()).length();
+                model.scale.set(scale, scale, scale);
+                
+                model.position.set(10, 1, 10); // Position the model away from the starting point
+                
+                scene.add(model);
+            });
 
-        // Mapeamento de botões do gamepad (alavancas analógicas)
-        controls.forward = gamepad.axes[1] < -0.2;
-        controls.backward = gamepad.axes[1] > 0.2;
-        controls.left = gamepad.axes[0] < -0.2;
-        controls.right = gamepad.axes[0] > 0.2;
-        controls.jump = gamepad.buttons[0].pressed;  // Botão A / X para pular ou outra ação
-      } else {
-        isGamepadConnected = false;
-      }
+            // First-person controls
+            controls = new THREE.PointerLockControls(camera, renderer.domElement);
+            scene.add(controls.getObject());
 
-      // Movimentação do jogador
-      if (controls.forward) player.position.z -= moveSpeed;
-      if (controls.backward) player.position.z += moveSpeed;
-      if (controls.left) player.position.x -= moveSpeed;
-      if (controls.right) player.position.x += moveSpeed;
+            // Click to start controls
+            document.getElementById('game-container').addEventListener('click', function() {
+                controls.lock();
+            });
 
-      // Atualizar a posição da câmera para seguir o jogador
-      camera.position.set(player.position.x, player.position.y + 2, player.position.z + 5);
-      camera.lookAt(player.position);
+            // Event listeners
+            window.addEventListener('resize', onWindowResize);
+            document.addEventListener('keydown', onKeyDown);
+            document.addEventListener('keyup', onKeyUp);
+            window.addEventListener('gamepadconnected', handleGamepadConnected);
+            window.addEventListener('gamepaddisconnected', handleGamepadDisconnected);
 
-      // Renderizar a cena
-      renderer.render(scene, camera);
-    }
+            // Touch controls for camera movement
+            let touchStartX, touchStartY;
+            document.addEventListener('touchstart', onTouchStart);
+            document.addEventListener('touchmove', onTouchMove);
+            document.addEventListener('touchend', onTouchEnd); // Added touchend event listener
 
-    // Função de redimensionamento do canvas
-    window.addEventListener('resize', () => {
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-    });
+            setupVirtualJoystick();
 
-    // Função para checar a conexão do gamepad
-    function checkGamepadConnection() {
-      if (!isGamepadConnected) {
-        console.log('Nenhum controle conectado.');
-      }
-    }
+            animate();
+        }
 
-    // Iniciar o jogo
-    init();
-    setInterval(checkGamepadConnection, 1000); // Verifica a cada segundo
-  </script>
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            const delta = 0.016; // Assume 60fps
+
+            velocity.x -= velocity.x * 10.0 * delta;
+            velocity.z -= velocity.z * 10.0 * delta;
+
+            direction.z = Number(moveForward) - Number(moveBackward);
+            direction.x = Number(moveRight) - Number(moveLeft);
+            direction.normalize();
+
+            if (moveForward || moveBackward) velocity.z -= direction.z * 400.0 * delta;
+            if (moveLeft || moveRight) velocity.x -= direction.x * 400.0 * delta;
+
+            if (joystick.active) {
+                velocity.x -= joystick.vector.x * 400.0 * delta;
+                velocity.z -= joystick.vector.y * 400.0 * delta;
+            }
+
+            controls.moveRight(-velocity.x * delta);
+            controls.moveForward(-velocity.z * delta);
+
+            // Apply camera rotation
+            camera.rotation.y -= cameraRotation.x * 0.05;
+            camera.rotation.x -= cameraRotation.y * 0.05;
+            camera.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, camera.rotation.x));
+
+            // Handle gamepad input
+            updateGamepadState();
+
+            renderer.render(scene, camera);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function onKeyDown(event) {
+            switch (event.code) {
+                case 'ArrowUp':
+                case 'KeyW':
+                    moveForward = true;
+                    break;
+                case 'ArrowLeft':
+                case 'KeyA':
+                    moveLeft = true;
+                    break;
+                case 'ArrowDown':
+                case 'KeyS':
+                    moveBackward = true;
+                    break;
+                case 'ArrowRight':
+                case 'KeyD':
+                    moveRight = true;
+                    break;
+            }
+        }
+
+        function onKeyUp(event) {
+            switch (event.code) {
+                case 'ArrowUp':
+                case 'KeyW':
+                    moveForward = false;
+                    break;
+                case 'ArrowLeft':
+                case 'KeyA':
+                    moveLeft = false;
+                    break;
+                case 'ArrowDown':
+                case 'KeyS':
+                    moveBackward = false;
+                    break;
+                case 'ArrowRight':
+                case 'KeyD':
+                    moveRight = false;
+                    break;
+            }
+        }
+
+        function handleGamepadConnected() {
+            isGamepadConnected = true;
+            document.getElementById('virtual-joystick').style.display = 'none';
+        }
+
+        function handleGamepadDisconnected() {
+            isGamepadConnected = false;
+            document.getElementById('virtual-joystick').style.display = 'block';
+        }
+
+        function onTouchStart(event) {
+            if (event.touches.length === 1) {
+                touchStartX = event.touches[0].pageX;
+                touchStartY = event.touches[0].pageY;
+            }
+        }
+
+        function onTouchMove(event) {
+            if (event.touches.length === 1) {
+                const touchEndX = event.touches[0].pageX;
+                const touchEndY = event.touches[0].pageY;
+                const dx = touchEndX - touchStartX;
+                const dy = touchEndY - touchStartY;
+
+                cameraRotation.x = dx * 0.002;
+                cameraRotation.y = dy * 0.002;
+
+                touchStartX = touchEndX;
+                touchStartY = touchEndY;
+            }
+        }
+
+        function onTouchEnd() {
+            cameraRotation.set(0, 0);
+        }
+
+        function updateGamepadState() {
+            const gamepads = navigator.getGamepads();
+            for (let i = 0; i < gamepads.length; i++) {
+                const gamepad = gamepads[i];
+                if (gamepad) {
+                    const axesThreshold = 0.1;
+                    moveForward = gamepad.axes[1] < -axesThreshold;
+                    moveBackward = gamepad.axes[1] > axesThreshold;
+                    moveLeft = gamepad.axes[0] < -axesThreshold;
+                    moveRight = gamepad.axes[0] > axesThreshold;
+
+                    // Camera rotation using right analog stick
+                    cameraRotation.x = Math.abs(gamepad.axes[2]) > axesThreshold ? gamepad.axes[2] : 0;
+                    cameraRotation.y = Math.abs(gamepad.axes[3]) > axesThreshold ? gamepad.axes[3] : 0;
+                    return;
+                }
+            }
+            // Reset camera rotation when no gamepad is connected
+            cameraRotation.set(0, 0);
+        }
+
+
+        function setupVirtualJoystick() {
+            const joystickElement = document.getElementById('virtual-joystick');
+            const knob = document.getElementById('joystick-knob');
+            let isDragging = false;
+
+            joystickElement.addEventListener('touchstart', startDragging);
+            joystickElement.addEventListener('touchmove', drag);
+            joystickElement.addEventListener('touchend', stopDragging);
+
+            joystickElement.addEventListener('mousedown', startDragging);
+            document.addEventListener('mousemove', drag);
+            document.addEventListener('mouseup', stopDragging);
+
+            function startDragging(e) {
+                isDragging = true;
+                joystick.active = true;
+                drag(e);
+            }
+
+            function stopDragging() {
+                isDragging = false;
+                joystick.active = false;
+                joystick.vector.set(0, 0);
+                knob.style.transform = 'translate(0px, 0px)';
+            }
+
+            function drag(e) {
+                if (!isDragging) return;
+
+                const joystickRect = joystickElement.getBoundingClientRect();
+                const centerX = joystickRect.width / 2;
+                const centerY = joystickRect.height / 2;
+
+                let clientX, clientY;
+
+                if (e.touches) {
+                    clientX = e.touches[0].clientX;
+                    clientY = e.touches[0].clientY;
+                } else {
+                    clientX = e.clientX;
+                    clientY = e.clientY;
+                }
+
+                const deltaX = clientX - joystickRect.left - centerX;
+                const deltaY = clientY - joystickRect.top - centerY;
+
+                const distance = Math.min(joystickRect.width / 2, Math.sqrt(deltaX * deltaX + deltaY * deltaY));
+                const angle = Math.atan2(deltaY, deltaX);
+
+                const moveX = Math.cos(angle) * distance;
+                const moveY = Math.sin(angle) * distance;
+
+                knob.style.transform = `translate(${moveX}px, ${moveY}px)`;
+
+                joystick.vector.set(moveX / (joystickRect.width / 2), moveY / (joystickRect.height / 2));
+            }
+
+            if (!isGamepadConnected) {
+                joystickElement.style.display = 'block';
+            }
+        }
+
+        let prevTime = performance.now();
+        init();
+    </script>
 </body>
 </html>
