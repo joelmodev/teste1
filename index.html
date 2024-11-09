@@ -55,6 +55,7 @@
         let velocity = new THREE.Vector3();
         let direction = new THREE.Vector3();
         let cameraRotation = new THREE.Vector2(); // Added camera rotation variable
+        let gyroData = { alpha: 0, beta: 0, gamma: 0 }; // Added gyroscope data variable
 
         function init() {
             scene = new THREE.Scene();
@@ -168,9 +169,17 @@
             controls.moveForward(-velocity.z * delta);
 
             // Apply camera rotation
-            camera.rotation.y -= cameraRotation.x * 0.05;
-            camera.rotation.x -= cameraRotation.y * 0.05;
-            camera.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, camera.rotation.x));
+            if (isGamepadConnected) {
+                // VR-style rotation using gyroscope data
+                camera.rotation.x = THREE.MathUtils.degToRad(gyroData.beta);
+                camera.rotation.y = THREE.MathUtils.degToRad(-gyroData.alpha);
+                camera.rotation.z = THREE.MathUtils.degToRad(gyroData.gamma);
+            } else {
+                // Touch-based rotation
+                camera.rotation.y -= cameraRotation.x * 0.05;
+                camera.rotation.x -= cameraRotation.y * 0.05;
+                camera.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, camera.rotation.x));
+            }
 
             // Handle gamepad input
             updateGamepadState();
@@ -229,11 +238,15 @@
         function handleGamepadConnected() {
             isGamepadConnected = true;
             document.getElementById('virtual-joystick').style.display = 'none';
+            if (window.DeviceOrientationEvent) {
+                window.addEventListener('deviceorientation', handleOrientation);
+            }
         }
 
         function handleGamepadDisconnected() {
             isGamepadConnected = false;
             document.getElementById('virtual-joystick').style.display = 'block';
+            window.removeEventListener('deviceorientation', handleOrientation);
         }
 
         function onTouchStart(event) {
@@ -272,15 +285,9 @@
                     moveBackward = gamepad.axes[1] > axesThreshold;
                     moveLeft = gamepad.axes[0] < -axesThreshold;
                     moveRight = gamepad.axes[0] > axesThreshold;
-
-                    // Camera rotation using right analog stick
-                    cameraRotation.x = Math.abs(gamepad.axes[2]) > axesThreshold ? gamepad.axes[2] : 0;
-                    cameraRotation.y = Math.abs(gamepad.axes[3]) > axesThreshold ? gamepad.axes[3] : 0;
                     return;
                 }
             }
-            // Reset camera rotation when no gamepad is connected
-            cameraRotation.set(0, 0);
         }
 
 
@@ -343,6 +350,14 @@
 
             if (!isGamepadConnected) {
                 joystickElement.style.display = 'block';
+            }
+        }
+
+        function handleOrientation(event) {
+            if (isGamepadConnected) {
+                gyroData.alpha = event.alpha; // Z-axis rotation [0,360)
+                gyroData.beta = event.beta;   // X-axis rotation [-180,180]
+                gyroData.gamma = event.gamma; // Y-axis rotation [-90,90]
             }
         }
 
